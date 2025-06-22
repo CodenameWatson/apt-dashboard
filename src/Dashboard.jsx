@@ -30,6 +30,9 @@ function getDistanceMiles(a, b) {
   return R * c
 }
 
+// Cache key prefix
+const CACHE_PREFIX = 'uapt-poi-'
+
 export default function Dashboard() {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -50,6 +53,14 @@ export default function Dashboard() {
 
     const data = []
     for (const addr of lines) {
+      // Try loading from cache
+      const cacheKey = CACHE_PREFIX + addr
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        data.push(JSON.parse(cached))
+        continue
+      }
+
       try {
         const { results: resArr } = await geocoder.geocode({ address: addr })
         if (resArr?.[0]) {
@@ -100,12 +111,16 @@ export default function Dashboard() {
           // distance from Stanford
           const distStanford = getDistanceMiles(STANFORD_COORDS, position).toFixed(2)
 
-          data.push({
+          const entry = {
             address: addr,
             position,
             distanceFromStanford: distStanford,
             pois: { gyms, groceries, parks, chains }
-          })
+          }
+
+          // Cache result
+          localStorage.setItem(cacheKey, JSON.stringify(entry))
+          data.push(entry)
         }
       } catch (e) {
         console.error('Error fetching data for', addr, e)
